@@ -11,3 +11,4 @@ while True:
     print('kaas')
     print('brood')
     print('spek') 
+    print('сир')
