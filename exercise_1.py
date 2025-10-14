@@ -10,3 +10,4 @@ while True:
         led.on()
     print('kaas')
     print('brood')
+    print('spek') 
