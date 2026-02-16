@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import time
 import random
 from rpi_ws281x import PixelStrip, Color
@@ -94,4 +95,4 @@ try:
     water_lights(Color(0,255,0))    
     breathing(Color(0,255,255))
 except:
-    pass
+    passv
