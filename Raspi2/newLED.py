@@ -2,6 +2,7 @@
 import time
 import random
 from rpi_ws281x import PixelStrip, Color
+import os
 
 LED_COUNT = 14        
 LED_PIN = 18          
@@ -86,13 +87,55 @@ def showRtoB():
         strip.show()
         time.sleep(0.05)  
     time.sleep(5)  
-    change_color(Color(0, 0, 0)) 
+    change_color(Color(0, 0, 0))
 
+# Read temperature from sensor
+def get_temperature():
+    try:
+        # Read from DHT sensor or system temperature
+        # Using /sys/class/thermal/thermal_zone0/temp for CPU temperature
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            temp = int(f.read()) / 1000.0
+        return temp
+    except:
+        # If sensor not available, return random temperature for testing
+        return random.uniform(20, 30)
+
+# Change LED color based on temperature
+def temp_color_control():
+    print("Temperature-based LED color control started")
+    print("< 24°C: Blue | 24-26°C: Orange | > 26°C: Red")
+    count = 0
+    while count < 5:
+        temp = get_temperature()
+        print(f"Current temperature: {temp:.1f}°C")
+        
+        if temp < 24:
+            # Blue color for temperature below 24°C
+            color = Color(0, 0, 255)
+            print("Temperature < 24°C - Blue")
+        elif 24 <= temp <= 26:
+            # Orange color for temperature 24-26°C
+            color = Color(255, 165, 0)
+            print("Temperature 24-26°C - Orange")
+        else:
+            # Red color for temperature above 26°C
+            color = Color(255, 0, 0)
+            print("Temperature > 26°C - Red")
+        
+        # Display the color for 2 seconds
+        change_color(color, wait_ms=10)
+        time.sleep(2)
+        count = count + 1
     
+    change_color(Color(0, 0, 0))
+
+
 try:
+    temp_color_control()
     showRtoB()
     random_lights()
     water_lights(Color(0,255,0))    
     breathing(Color(0,255,255))
 except:
-    passv
+    pass
