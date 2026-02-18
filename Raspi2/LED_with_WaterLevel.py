@@ -79,7 +79,6 @@ def read_channel(ch):
 
 
 def sensors_to_leds_count(sensor_count, sensor_max=7, led_count=LED_COUNT):
-    """Map number of active sensors (0..sensor_max) to number of LEDs to light (0..led_count)."""
     if sensor_max <= 0:
         return 0
     # Proportional mapping, round to nearest integer
@@ -114,15 +113,12 @@ def main_loop():
                 # Update LEDs: light where water is (and below)
                 set_level(leds_on, color_on=Color(0,255,0), color_off=Color(0,0,0))
 
-                print(f'water_level={water_level} leds_on={leds_on}')
-                print(water_level_list)
+                # print(f'water_level={water_level} leds_on={leds_on}')
+                # print(water_level_list)
 
                 readings_done = 0
                 last_cycle_time = now
 
-            # busy-wait friendly small sleep substitute: yield thread briefly
-            # (do not use time.sleep here per request)
-            # simple no-op to avoid tight spin on some systems
             pass
 
     except KeyboardInterrupt:
