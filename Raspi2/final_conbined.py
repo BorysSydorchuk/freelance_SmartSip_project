@@ -3,7 +3,7 @@ import glob
 import RPi.GPIO as GPIO
 from rpi_ws281x import PixelStrip, Color
 
-# ---------------- LED strip config ----------------
+# LED strip config
 LED_COUNT = 14
 LED_PIN = 18
 LED_FREQ_HZ = 800000
@@ -20,7 +20,7 @@ strip.begin()
 
 clock = time.time
 
-# ---------------- DS18B20 temp sensor config ----------------
+#DS18B20 temp sensor config
 base = '/sys/bus/w1/devices/'
 devs = glob.glob(base + '28-*')
 if not devs:
@@ -53,7 +53,7 @@ def get_temp_description(temp):
     else:
         return "Red (> 26°C)"
 
-# ---------------- Multiplexer / water-level reader config ----------------
+#Multiplexer / water-level reader config
 # GPIO pin numbers (BCM)
 S0 = 13
 S1 = 6
@@ -92,7 +92,7 @@ def set_level(level: int, color_on: Color, color_off: Color = Color(0, 0, 0)):
         strip.setPixelColor(i, color_on if i < level else color_off)
     strip.show()
 
-# ---------------- Main loop (combined) ----------------
+#  Main loop
 def main_loop():
     sensor_idx = 0
     water_level_list = [0] * 7
@@ -114,14 +114,14 @@ def main_loop():
         while True:
             now = clock()
 
-            # 1) read water sensors (1 channel each time slice)
+            # 1 read water sensors (1 channel each time slice)
             if now - last_sensor_time >= sensor_interval:
                 water_level_list[sensor_idx] = read_channel(sensor_idx)
                 sensor_idx = (sensor_idx + 1) % 7
                 readings_done += 1
                 last_sensor_time = now
 
-            # 2) read temperature periodically
+            # 2 read temperature periodically
             if now - last_temp_time >= temp_interval:
                 t = read_c()
                 if t is not None:
@@ -132,7 +132,7 @@ def main_loop():
                     print('Temperature read error')
                 last_temp_time = now
 
-            # 3) update LEDs after we have at least one full sensor scan (>=7 reads)
+            # 3 update LEDs after we have at least one full sensor scan (>=7 reads)
             if readings_done >= 7 and (now - last_led_time >= led_update_interval):
                 water_level = sum(water_level_list)  # how many sensors are "wet" (0..7)
                 leds_on = sensors_to_leds_count(water_level, sensor_max=7, led_count=LED_COUNT)
@@ -140,7 +140,6 @@ def main_loop():
                 # LEDs: show water level length, color depends on temperature
                 set_level(leds_on, color_on=current_color, color_off=Color(0, 0, 0))
 
-                # debug if needed:
                 # print(f'water_level={water_level} leds_on={leds_on} sensors={water_level_list} temp={last_temp}')
                 readings_done = 0
                 last_led_time = now
