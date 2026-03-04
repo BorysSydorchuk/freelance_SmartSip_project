@@ -9,12 +9,14 @@ WATER_PUMP_GPIO  = 18
 adc = MCP3008(channel=0)
 button=Button(21)
 #initialising water pump
+GPIO.setmode(GPIO.BCM)
 GPIO.setup(WATER_PUMP_GPIO, GPIO.OUT)
 
+
 #linearisering
-ZERO_OFFSET = 0.45     # Voltage at 0 kg
-FULL_SCALE_VOLT = 2.40 # Voltage at known mass (maybe use phone?)
-KNOWN_MASS = 1000      # phone mass
+ZERO_OFFSET = 1.29   # Voltage at 0 kg
+FULL_SCALE_VOLT = 1.585 # Voltage at known mass (maybe use phone?)
+KNOWN_MASS = 500      # phone mass
 def get_mass(v):
     return (v - ZERO_OFFSET) * (KNOWN_MASS / (FULL_SCALE_VOLT - ZERO_OFFSET))
 
@@ -28,7 +30,7 @@ def pump_off():
     print("Pump OFF")
 
 def dispenseWeight(massRequested):
-    print("press button to dispense"+massRequested)
+    print(f"press button to dispense+{massRequested}")
     button.wait_for_press() #script is blocked till the button is pressed
     clock=time.time #giving the function time.time an alias "clock"
     previous_time=clock()
@@ -57,5 +59,5 @@ def dispenseWeight(massRequested):
         pump_off() #the finally always gets run so if the code crashes or there is a keyboard interrupt. manually always turning the pump off is a good failsafe
 
 
-
+dispenseWeight(1000)
 
