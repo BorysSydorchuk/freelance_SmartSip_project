@@ -32,8 +32,8 @@ def pump_off():
     print("Pump OFF")
 
 def dispenseWeight(massRequested):
-    print(f"press button to dispense+{massRequested}")
-    button.wait_for_press()             # script is blocked till the button is pressed
+    # print(f"press button to dispense+{massRequested}")
+    # button.wait_for_press()             # script is blocked till the button is pressed
     clock = time.time                   # giving the function time.time an alias "clock"
     previous_time = clock()
     scaleInitial = adc.value            # 0.0–1.0 (ratio) its a scale so you can reverse engineer the voltage you have before the adc converter and then you apply linearisation to find the mass
@@ -95,7 +95,7 @@ def mark_request_done(request_id):
     URL format: /updateRefillDone/{id}
     """
     try:
-        url = f"{BASE_URL}/updateRefillDone/{request_id}"  # replace endpoint name if different
+        url = f"{BASE_URL}/setRefillStatus/done"  # replace endpoint name if different
         response = requests.get(url, timeout=5)
         if response.status_code != 200:
             print(f"Failed to mark done: HTTP {response.status_code}")
@@ -118,9 +118,9 @@ def main_loop():
         request = get_latest_request()
 
         if request is not None and request["RefillResponse"] == "pending":  # replace key name if different
-            req_id  = request["id"]              # replace key name if different
-            ml_cold = float(request["ml_cold"])  # replace key name if different
-            ml_warm = float(request["ml_warm"])  # replace key name if different
+            req_id  = request["ID"]              # replace key name if different
+            ml_cold = float(request["VolumeOfColdTank"])  # replace key name if different
+            ml_warm = float(request["VolumeOfHotTank"])  # replace key name if different
 
             print(f"New request #{req_id}: cold={ml_cold:.0f}g  warm={ml_warm:.0f}g")
 

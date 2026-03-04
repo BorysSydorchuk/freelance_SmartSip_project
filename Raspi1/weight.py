@@ -9,8 +9,8 @@ ZERO_OFFSET_Left = 0.45     # Voltage at 0 kg
 FULL_SCALE_VOLT_Left = 2.40 # Voltage at known mass (maybe use phone?)
 KNOWN_MASS_Left = 1000      # phone mass
 #LINEARISATION pump 2
-ZERO_OFFSET_Right = 1.29     # Voltage at 0 kg
-FULL_SCALE_VOLT_Right = 1.585 # Voltage at known mass (maybe use phone?)
+ZERO_OFFSET_Right = 0.766     # Voltage at 0 kg
+FULL_SCALE_VOLT_Right = 1.178 # Voltage at known mass (maybe use phone?)
 KNOWN_MASS_Right= 500      # phone mass
 
 def get_massLeft(v):
