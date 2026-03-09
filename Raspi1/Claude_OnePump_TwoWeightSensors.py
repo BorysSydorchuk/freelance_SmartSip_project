@@ -16,8 +16,8 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(WATER_PUMP_GPIO, GPIO.OUT)
 
 # linearisering
-ZERO_OFFSET     = 1.29    # Voltage at 0 kg
-FULL_SCALE_VOLT = 1.585   # Voltage at known mass (maybe use phone?)
+ZERO_OFFSET     = 1.024   # Voltage at 0 kg
+FULL_SCALE_VOLT = 1.385  # Voltage at known mass (maybe use phone?)
 KNOWN_MASS      = 500     # phone mass
 
 def get_mass(v):

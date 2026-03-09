@@ -3,11 +3,11 @@ from signal import pause
 
 #servo settings, range from -1 to 1
 L_OPEN = 0
-L_LOCK =  0.33
+L_LOCK = 0.6
 
 #mirrored
 R_OPEN =  0
-R_LOCK = -0.33
+R_LOCK = -0.6
 
 
 left_servo  = Servo(12)
