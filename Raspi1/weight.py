@@ -5,9 +5,9 @@ import time
 adcRight = MCP3008(channel=0) #left when looking straight at the faucet
 adcLeft = MCP3008(channel=1)
 #LINEARISATION pump 1
-ZERO_OFFSET_Left = 0.711    # Voltage at 0 kg
-FULL_SCALE_VOLT_Left = 2.40 # Voltage at known mass (maybe use phone?)
-KNOWN_MASS_Left = 1000      # phone mass
+ZERO_OFFSET_Left = 0.750    # Voltage at 0 kg
+FULL_SCALE_VOLT_Left =1.550  # Voltage at known mass (maybe use phone?)
+KNOWN_MASS_Left = 800      # phone mass
 #LINEARISATION pump 2
 ZERO_OFFSET_Right = 1.024     # Voltage at 0 kg
 FULL_SCALE_VOLT_Right = 1.385 # Voltage at known mass (maybe use phone?)
