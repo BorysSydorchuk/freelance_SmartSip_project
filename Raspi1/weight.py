@@ -18,15 +18,28 @@ def get_massLeft(v):
 def get_massRight(v):
     return (v - ZERO_OFFSET_Right) * (KNOWN_MASS_Right / (FULL_SCALE_VOLT_Right - ZERO_OFFSET_Right)) #right side creates slope (y2-y1)/(x2-x1) this is a function m(v) that has an output of mass and input off voltage
 clock=time.time #giving the function time.time an alias "clock"
+massLeft= None
+alphaLeft=0.4 #the importance of a new reading this is for exponential smoothing
+massRight= None
+alphaRight= 0.8
 previous_time=clock()
 while True:
     if previous_time+1 < clock():
         scaleRight = adcRight.value           # 0.0–1.0 (ratio) its a scale so you can reverse engineer the voltage you have before the adc converter and then you apply linearisation to find the mass 
         voltageRight = scaleRight * 3.3       # Convert to volts
-        massRight = get_massRight(voltageRight)
+        newMassRight = get_massRight(voltageRight)
+        if massRight is None:
+            massRight= newMassRight
+        else:
+            massRight= alphaRight*newMassRight+(1-alphaRight)*massRight
         scaleLeft = adcLeft.value           # 0.0–1.0 (ratio) its a scale so you can reverse engineer the voltage you have before the adc converter and then you apply linearisation to find the mass 
         voltageLeft = scaleLeft * 3.3       # Convert to volts
-        massLeft = get_massLeft(voltageLeft)
+        newMassLeft=get_massLeft(voltageLeft)
+        if massLeft is None:
+            massLeft=newMassLeft
+        else:
+            massLeft= newMassLeft*alphaLeft+ (1-alphaLeft)*massLeft
+                 
         print(f"The right tank has:{voltageRight:.3f} V → {massRight:.0f} g The left tank has:{voltageLeft:.3f}V → {massLeft:.0f} g") #the 3f formats the voltage to 3 decimals and 1f formats mass to 1 decimal
         previous_time=clock()
 
