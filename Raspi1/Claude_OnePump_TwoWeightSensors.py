@@ -5,16 +5,24 @@ from gpiozero import Button
 import RPi.GPIO as GPIO
 import time
 import requests                         # NEW: for DB communication
+import servo
+import buzzer
+import test_tempsensor_tanks
 
 # initialisering ad converter
-WATER_PUMP_GPIO  = 18
+WATER_PUMP_GPIO1  = 18
+WATER_PUMP_GPIO2 = 15
 adc = MCP3008(channel=0)
 button = Button(21)
 
 # initialising water pump
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(WATER_PUMP_GPIO, GPIO.OUT)
-
+GPIO.setup(WATER_PUMP_GPIO1, GPIO.OUT)
+#initialising temps sensor
+SENSOR_MAP = {
+    "tank1": "/sys/bus/w1/devices/28-00000f030c5d", #When DS18B20 sensors are connected to the Raspberry Pi, each one appears in Linux as a folder with a unique ID
+    "tank2": "/sys/bus/w1/devices/28-00001070288a",
+}
 # linearisering
 ZERO_OFFSET     = 1.024   # Voltage at 0 kg
 FULL_SCALE_VOLT = 1.385  # Voltage at known mass (maybe use phone?)
@@ -23,12 +31,12 @@ KNOWN_MASS      = 500     # phone mass
 def get_mass(v):
     return (v - ZERO_OFFSET) * (KNOWN_MASS / (FULL_SCALE_VOLT - ZERO_OFFSET))
 
-def pump_on():
-    GPIO.output(WATER_PUMP_GPIO, 1)
+def pump_on(Water_Pump_Gpio):
+    GPIO.output(Water_Pump_Gpio, 1)
     print("Pump ON")
 
-def pump_off():
-    GPIO.output(WATER_PUMP_GPIO, 0)
+def pump_off(Water_Pump_Gpio):
+    GPIO.output(Water_Pump_Gpio, 0)
     print("Pump OFF")
 
 def dispenseWeight(massRequested):
@@ -50,7 +58,7 @@ def dispenseWeight(massRequested):
                 massDifference = massInitial - mass
                 if massDifference < massRequested:
                     if not pump_is_on:
-                        pump_on()
+                        pump_on(WATER_PUMP_GPIO1)
                         pump_is_on = True
                     print(f"Dispensing, {massRequested - massDifference:.0f} g left")  # the 3f formats the voltage to 3 decimals and 1f formats mass to 1 decimal
                 else:
@@ -58,7 +66,7 @@ def dispenseWeight(massRequested):
                     break               # break stops the nearest loop youre in so here while true, otherewise the loop runs indefinitely and not only when we request
                 previous_time = clock()
     finally:
-        pump_off()                      # the finally always gets run so if the code crashes or there is a keyboard interrupt. manually always turning the pump off is a good failsafe
+        pump_off(WATER_PUMP_GPIO1)                      # the finally always gets run so if the code crashes or there is a keyboard interrupt. manually always turning the pump off is a good failsafe
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -114,10 +122,11 @@ def mark_request_done(request_id):
 # ════════════════════════════════════════════════════════════════════════
 def main_loop():
     print("Station ready. Polling for refill requests...")
+    
     while True:
         request = get_latest_request()
-
-        if request is not None and request["RefillResponse"] == "pending":  # replace key name if different
+        test_tempsensor_tanks.read_all_tanks(SENSOR_MAP)
+        if request is not None and request["RefillResponse"] == "pending":  
             req_id  = request["ID"]              # replace key name if different
             ml_cold = float(request["VolumeOfColdTank"])  # replace key name if different
             ml_warm = float(request["VolumeOfHotTank"])  # replace key name if different
@@ -126,6 +135,7 @@ def main_loop():
 
             # Dispense cold water if requested
             if ml_cold > 0:
+                #servo.lock_clamp() #we always start with cold dispense so it will lock when cold water flows
                 print("Starting cold tank dispense...")
                 dispenseWeight(ml_cold)
 
@@ -138,6 +148,8 @@ def main_loop():
             # Tell the Java app we are done
             mark_request_done(req_id)
             print("Refill complete.")
+            buzzer.buzzer_onesecond()
+            #servo.toggle_clamp() #unlock servo
 
         else:
             print("No pending request. Waiting...")

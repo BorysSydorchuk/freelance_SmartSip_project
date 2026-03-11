@@ -5,8 +5,8 @@ import time
 adcRight = MCP3008(channel=0) #left when looking straight at the faucet
 adcLeft = MCP3008(channel=1)
 #LINEARISATION pump 1
-ZERO_OFFSET_Left = 0.750    # Voltage at 0 kg
-FULL_SCALE_VOLT_Left =1.550  # Voltage at known mass (maybe use phone?)
+ZERO_OFFSET_Left = 0.114    # Voltage at 0 kg
+FULL_SCALE_VOLT_Left =0.65 # Voltage at known mass (maybe use phone?)
 KNOWN_MASS_Left = 800      # phone mass
 #LINEARISATION pump 2
 ZERO_OFFSET_Right = 1.024     # Voltage at 0 kg
@@ -19,7 +19,7 @@ def get_massRight(v):
     return (v - ZERO_OFFSET_Right) * (KNOWN_MASS_Right / (FULL_SCALE_VOLT_Right - ZERO_OFFSET_Right)) #right side creates slope (y2-y1)/(x2-x1) this is a function m(v) that has an output of mass and input off voltage
 clock=time.time #giving the function time.time an alias "clock"
 massLeft= None
-alphaLeft=0.4 #the importance of a new reading this is for exponential smoothing
+alphaLeft=0.8 #the importance of a new reading this is for exponential smoothing
 massRight= None
 alphaRight= 0.8
 previous_time=clock()
