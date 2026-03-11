@@ -1,38 +1,12 @@
-import glob
 import time
 
-BASE_PATH = "/sys/bus/w1/devices/"
-
-
-def find_all_temp_sensors(base_path: str = BASE_PATH) -> dict[str, str]:
-    """
-    Find all DS18B20 sensors connected to the 1-Wire bus.
-    Returns a dictionary like:
-    {
-        "tank1": "/sys/bus/w1/devices/28-xxxxxxxxxxxx",
-        "tank2": "/sys/bus/w1/devices/28-yyyyyyyyyyyy"
-    }
-
-    If you know which physical sensor is which tank, you can swap the labels later.
-    """
-    devices = sorted(glob.glob(base_path + "28-*"))
-
-    if len(devices) < 2:
-        raise FileNotFoundError(
-            f"Expected 2 DS18B20 sensors, but found {len(devices)}."
-        )
-
-    return {
-        "tank1": devices[0],
-        "tank2": devices[1],
-    }
+SENSOR_MAP = {
+    "tank1": "/sys/bus/w1/devices/28-00000f030c5d",
+    "tank2": "/sys/bus/w1/devices/28-00001070288a",
+}
 
 
 def read_temp_c(device_path: str) -> float | None:
-    """
-    Read one DS18B20 sensor in °C.
-    Returns None if CRC check fails or parsing fails.
-    """
     w1_slave_file = device_path + "/w1_slave"
 
     try:
@@ -41,11 +15,7 @@ def read_temp_c(device_path: str) -> float | None:
     except OSError:
         return None
 
-    if len(lines) < 2:
-        return None
-
-    # First line should end with YES if CRC is valid
-    if not lines[0].endswith("YES"):
+    if len(lines) < 2 or not lines[0].endswith("YES"):
         return None
 
     try:
@@ -56,53 +26,30 @@ def read_temp_c(device_path: str) -> float | None:
 
 
 def read_all_tanks(sensor_map: dict[str, str]) -> dict[str, float | None]:
-    """
-    Read all tank temperatures.
-    Example output:
-    {
-        "tank1": 23.56,
-        "tank2": 41.12
-    }
-    """
     readings = {}
 
-    for tank_name, device_path in sensor_map.items():
-        readings[tank_name] = read_temp_c(device_path)
+    for tank, path in sensor_map.items():
+        readings[tank] = read_temp_c(path)
 
     return readings
 
 
-def print_tank_readings(readings: dict[str, float | None]) -> None:
-    """
-    Print tank readings in a clean format.
-    """
-    for tank_name, temp in readings.items():
-        if temp is None:
-            print(f"{tank_name}: read error")
-        else:
-            print(f"{tank_name}: {temp:.2f} °C")
-
-
-# -------------------------------
-# MAIN PROGRAM
-# -------------------------------
-sensor_map = find_all_temp_sensors()
-
-print("Detected sensors:")
-for tank, path in sensor_map.items():
-    print(f"{tank} -> {path}")
-
 clock = time.time
 previous_time = clock()
-interval = 1.0  # seconds
+interval = 1.0
 
 while True:
     now = clock()
 
-    # no time.sleep(); only act every 1 second
     if now - previous_time >= interval:
         previous_time = now
 
-        readings = read_all_tanks(sensor_map)
-        print_tank_readings(readings)
+        readings = read_all_tanks(SENSOR_MAP)
+
+        for tank, temp in readings.items():
+            if temp is None:
+                print(f"{tank}: read error")
+            else:
+                print(f"{tank}: {temp:.2f} °C")
+
         print("-" * 30)
