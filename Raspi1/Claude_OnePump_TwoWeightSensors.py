@@ -14,6 +14,11 @@ WATER_PUMP_GPIO1  = 18
 WATER_PUMP_GPIO2 = 15
 adc = MCP3008(channel=0)
 button = Button(21)
+# temperature sensors
+SENSOR_MAP = {
+    "tank1": "/sys/bus/w1/devices/28-00000f030c5d",
+    "tank2": "/sys/bus/w1/devices/28-00001070288a",
+}
 
 # initialising water pump
 GPIO.setmode(GPIO.BCM)
@@ -27,6 +32,33 @@ SENSOR_MAP = {
 ZERO_OFFSET     = 1.024   # Voltage at 0 kg
 FULL_SCALE_VOLT = 1.385  # Voltage at known mass (maybe use phone?)
 KNOWN_MASS      = 500     # phone mass
+
+#singular temp reading function
+def read_temp_c(device_path: str) -> float | None:
+    w1_slave_file = device_path + "/w1_slave"
+
+    try:
+        with open(w1_slave_file, "r") as f:
+            lines = f.read().strip().splitlines()
+    except OSError:
+        return None
+
+    if len(lines) < 2 or not lines[0].endswith("YES"):
+        return None
+
+    try:
+        t_str = lines[1].split("t=")[-1]
+        return float(t_str) / 1000.0
+    except (ValueError, IndexError):
+        return None
+#2 tank temp reading
+def read_all_tanks(sensor_map: dict[str, str]) -> dict[str, float | None]:
+    readings = {}
+
+    for tank, path in sensor_map.items():
+        readings[tank] = read_temp_c(path)
+
+    return readings
 
 def get_mass(v):
     return (v - ZERO_OFFSET) * (KNOWN_MASS / (FULL_SCALE_VOLT - ZERO_OFFSET))
