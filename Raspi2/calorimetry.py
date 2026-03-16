@@ -11,7 +11,7 @@ def calculateWater(totalVolumebottle,tempHotTank,tempColdTank,desiredTemp):#this
     mass_cold= massWaterFullbottle*(tempHotTank-desiredTemp)/(tempHotTank-tempColdTank)   
 
 
-    return mass_cold      
+    return mass_cold
 
 #this is when there is already water in bottle
 
