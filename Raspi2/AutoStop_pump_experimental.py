@@ -282,5 +282,6 @@ if __name__ == "__main__":
         print("Shutting down...")
 
     finally:
-        pump_off()
+        pump_off(WATER_PUMP_GPIO_COLD)
+        pump_off(WATER_PUMP_GPIO_HOT)
         GPIO.cleanup()
