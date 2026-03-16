@@ -7,14 +7,16 @@ import socket
 import threading
 
 # GPIO / ADC init
-WATER_PUMP_GPIO = 15
+WATER_PUMP_GPIO_COLD = 15
+WATER_PUMP_GPIO_HOT=18
 adc = MCP3008(channel=0)
 button = Button(21)
 #initialise water pump
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(WATER_PUMP_GPIO, GPIO.OUT)
-GPIO.output(WATER_PUMP_GPIO, 0)
-
+GPIO.setup(WATER_PUMP_GPIO_COLD, GPIO.OUT) #cold is right tank when you look at faucet
+GPIO.output(WATER_PUMP_GPIO_COLD, 0)
+GPIO.setup(WATER_PUMP_GPIO_HOT,GPIO.OUT)
+GPIO.output(WATER_PUMP_GPIO_HOT,0)
 
 # TCP server config (Pi 2 = server)
 HOST = "0.0.0.0"
@@ -42,13 +44,13 @@ def get_mass(v):
     return (v - ZERO_OFFSET) * (KNOWN_MASS / (FULL_SCALE_VOLT - ZERO_OFFSET))
 
 
-def pump_on():
-    GPIO.output(WATER_PUMP_GPIO, 1)
+def pump_on(Pump_GPIO):
+    GPIO.output(Pump_GPIO, 1)
     print("Pump ON")
 
 
-def pump_off():
-    GPIO.output(WATER_PUMP_GPIO, 0)
+def pump_off(Pump_GPIO):
+    GPIO.output(Pump_GPIO, 0)
     print("Pump OFF")
 
 
@@ -129,10 +131,7 @@ def dispenseWeight(massRequested):
 
     try:
         while True:
-            # 1) stop immediately if bottle Pi says FULL
-            if stop_fill_event.is_set():
-                print("[SAFE STOP] Stop event detected, stopping dispense now.")
-                break
+
 
             # 2) keep your original sampling interval
             if previous_time + 0.2 < clock():
@@ -144,7 +143,7 @@ def dispenseWeight(massRequested):
 
                 if massDifference < massRequested:
                     if not pump_is_on:
-                        pump_on()
+                        pump_on(WATER_PUMP_GPIO_COLD)
                         pump_is_on = True
 
                     print(f"Dispensing, {massRequested - massDifference:.0f} g left")
@@ -155,12 +154,29 @@ def dispenseWeight(massRequested):
                 previous_time = clock()
 
     finally:
-        pump_off()
+        pump_off(WATER_PUMP_GPIO_COLD)
         with state_lock:
             currently_dispensing = False
 
-
-
+def dispenseWeightHot():
+    global currently_dispensing
+    pump_is_on = False
+    with state_lock:
+        currently_dispensing = True
+    try:
+        while True:
+            # 1) stop immediately if bottle Pi says FULL
+            if stop_fill_event.is_set():
+                print("[SAFE STOP] Stop event detected, stopping dispense now.")
+                break
+            if  not pump_is_on:
+                pump_on(WATER_PUMP_GPIO_HOT)
+                pump_is_on= True
+    finally:
+        pump_off(WATER_PUMP_GPIO_HOT)
+        with state_lock:
+            currently_dispensing = False            
+            
 # DB helpers
 
 def get_latest_request():
@@ -234,7 +250,7 @@ def main_loop():
 
             if ml_warm > 0:
                 print("Starting warm tank dispense...")
-                dispenseWeight(ml_warm)
+                dispenseWeightHot()
 
             mark_request_done(req_id)
             print("Refill complete.")
