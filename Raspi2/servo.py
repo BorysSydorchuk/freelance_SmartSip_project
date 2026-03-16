@@ -39,10 +39,3 @@ def toggle_clamp():
     else:
         lock_clamp()
 
-# Buton listener
-button.when_pressed = toggle_clamp
-
-open_clamp() #clamps are open when starting
-
-# Burada program bekler; butona basılınca callback tetiklenir.
-pause()
