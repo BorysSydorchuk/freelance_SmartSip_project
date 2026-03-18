@@ -1,5 +1,4 @@
 from gpiozero import Servo, Button
-from gpiozero.pins.pigpio import PiGPIOFactory
 from signal import pause
 from threading import Timer
 #servo settings, range from -1 to 1
@@ -11,9 +10,8 @@ R_OPEN =  0
 R_LOCK = -0.6
 
 #initialising pin factory to reduce servo jitter
-factory = PiGPIOFactory()
-left_servo  = Servo(12, pin_factory=factory)
-right_servo = Servo(13, pin_factory=factory)
+left_servo  = Servo(12)
+right_servo = Servo(13)
 
 
 # locked = False
