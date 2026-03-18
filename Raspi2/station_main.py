@@ -79,7 +79,7 @@ def read_tank_temps() -> tuple[float | None, float | None]:
 # Returns mass of cold water needed in grams, or None on error.
 # ════════════════════════════════════════════════════════════════════════════════
 
-TOTAL_BOTTLE_VOLUME_ML = 100.0  # ← set this once you measure your bottle
+TOTAL_BOTTLE_VOLUME_ML = 220.0  # ← set this once you measure your bottle
 
 def calculate_cold_mass(
     volume_in_bottle_ml: float,
