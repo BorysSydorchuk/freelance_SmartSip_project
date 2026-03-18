@@ -1,21 +1,14 @@
 import time
 import glob
 import socket
-import requests
+import requests  
 import RPi.GPIO as GPIO
 from rpi_ws281x import PixelStrip, Color
 
+# Network config (Pi 2 server)
 
-# Network config (Pi 2 -> Pi 1 TCP server)
-SERVER_IP = "172.20.10.3"
+SERVER_IP = "172.20.10.3"   
 SERVER_PORT = 5000
-
-
-# Database/API config
-
-BASE_URL = "https://studev.groept.be/api/a25EE2team203"
-DB_UPLOAD_INTERVAL = 5.0   # upload to DB every 5 seconds
-
 
 # LED strip config
 LED_COUNT = 14
@@ -34,13 +27,11 @@ strip.begin()
 
 clock = time.time
 
-
-# DS18B20 temp sensor config
-
+# temp sensor config
 base = '/sys/bus/w1/devices/'
 devs = glob.glob(base + '28-*')
 if not devs:
-    raise RuntimeError("No DS18B20 sensor found under /sys/bus/w1/devices/.")
+    raise RuntimeError("No DS18B20 sensor found.")
 
 dev = devs[0]
 w1_file = dev + '/w1_slave'
@@ -73,7 +64,7 @@ def get_temp_description(temp):
         return "Red (> 26°C)"
 
 
-# Water-level reader config
+#water-level reader config
 
 S0 = 13
 S1 = 6
@@ -120,17 +111,19 @@ def set_level(level: int, color_on: Color, color_off: Color = Color(0, 0, 0)):
 # TCP client helpers
 
 def send_message_to_server(message: str, timeout: float = 2.0) -> bool:
+  
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(timeout)
             s.connect((SERVER_IP, SERVER_PORT))
             s.sendall(message.encode("utf-8"))
 
+            # Optional ACK receive
             try:
                 reply = s.recv(1024).decode("utf-8").strip()
                 print(f"Server reply: {reply}")
             except socket.timeout:
-                print("Timeout waiting for ACK, but message may still be delivered.")
+                print("timeout, but message may still be delivered.")
 
         print(f"Sent: {message}")
         return True
@@ -140,23 +133,6 @@ def send_message_to_server(message: str, timeout: float = 2.0) -> bool:
         return False
 
 
-
-# API upload helper
-
-def upload_to_db(water_level: int, temperature: float):
-   
-    try:
-        url = f"{BASE_URL}/insertBottleStatus/{water_level}/{temperature:.2f}"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            print(f"DB upload success: level={water_level}, temp={temperature:.2f}°C")
-        else:
-            print(f"DB upload failed: HTTP {response.status_code}")
-    except Exception as e:
-        print(f"DB upload error: {e}")
-
-
-
 # Main loop
 
 def main_loop():
@@ -164,51 +140,49 @@ def main_loop():
     water_level_list = [0] * 7
 
     # timing
-    sensor_interval = 0.01         # read one sensor every 10 ms
-    led_update_interval = 0.1      # update LEDs every 100 ms
-    temp_interval = 1.0            # read temp every 1 second
-    heartbeat_interval = 5.0       # send heartbeat every 5 seconds
+    sensor_interval = 0.01        # read one sensor every 10 ms
+    led_update_interval = 0.1     # update LEDs every 100 ms
+    temp_interval = 1.0           # read temp every 1 s
+    heartbeat_interval = 5.0      # send heartbeat every 5 s
 
     last_sensor_time = clock()
     last_led_time = clock()
     last_temp_time = clock()
     last_heartbeat_time = clock()
-    last_db_time = clock()
 
     readings_done = 0
     last_temp = None
-    current_color = Color(0, 255, 0)   # fallback before first temp read
+    current_color = Color(0, 255, 0)  # fallback before first temp read
 
+ 
     FULL_THRESHOLD = 7
-    bottle_is_full = False
 
-    # avoid unnecessary DB uploads
-    last_uploaded_level = -1
-    last_uploaded_temp = None
+    # Track state changes to avoid spamming messages
+    bottle_is_full = False
 
     try:
         while True:
             now = clock()
 
-            # 1) Read one water sensor channel each cycle
+            # 1 Read water sensors (one channel per time slice)
             if now - last_sensor_time >= sensor_interval:
                 water_level_list[sensor_idx] = read_channel(sensor_idx)
                 sensor_idx = (sensor_idx + 1) % 7
                 readings_done += 1
                 last_sensor_time = now
 
-            # 2) Read temperature periodically
+            # 2 Read temperature periodically
             if now - last_temp_time >= temp_interval:
                 t = read_c()
                 if t is not None:
                     last_temp = t
                     current_color = get_led_color_by_temp(t)
-                    
+                    print(f"{t:.2f} °C - {get_temp_description(t)}")
                 else:
                     print("Temperature read error")
                 last_temp_time = now
 
-            # 3) Update LEDs after one full sensor scan
+            # 3 Update LEDs after one full sensor scan
             if readings_done >= 7 and (now - last_led_time >= led_update_interval):
                 water_level = sum(water_level_list)   # 0..7
                 leds_on = sensors_to_leds_count(water_level, sensor_max=7, led_count=LED_COUNT)
@@ -217,7 +191,7 @@ def main_loop():
 
                 print(f"water_level={water_level}, sensors={water_level_list}, temp={last_temp}")
 
-                # 4) Full bottle event detection -> TCP notify Pi 1
+                # 4) Full bottle event detection
                 currently_full = water_level >= FULL_THRESHOLD
 
                 if currently_full and not bottle_is_full:
@@ -233,20 +207,11 @@ def main_loop():
                 readings_done = 0
                 last_led_time = now
 
-            # 5) Heartbeat to Pi 1
+            # 5) Heartbeat
             if now - last_heartbeat_time >= heartbeat_interval:
                 hb_message = f"HEARTBEAT temp={last_temp if last_temp is not None else 'NA'} full={int(bottle_is_full)}"
                 send_message_to_server(hb_message)
                 last_heartbeat_time = now
-
-            # 6) Upload to DB periodically
-            if now - last_db_time >= DB_UPLOAD_INTERVAL and last_temp is not None:
-                water_level = sum(water_level_list)
-                if water_level != last_uploaded_level or last_temp != last_uploaded_temp:
-                    upload_to_db(water_level, last_temp)
-                    last_uploaded_level = water_level
-                    last_uploaded_temp = last_temp
-                last_db_time = now
 
             time.sleep(0.001)
 

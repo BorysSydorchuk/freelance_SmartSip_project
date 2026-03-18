@@ -1,23 +1,27 @@
 from gpiozero import MCP3008
 from gpiozero import Button
+from gpiozero import Buzzer
 import RPi.GPIO as GPIO
 import time
 import requests
 import socket
 import threading
+import servo
 
+# import buzzer
 # GPIO / ADC init
 WATER_PUMP_GPIO_COLD = 15
 WATER_PUMP_GPIO_HOT=18
 adc = MCP3008(channel=0)
-button = Button(21)
+# button = Button(21)
 #initialise water pump
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(WATER_PUMP_GPIO_COLD, GPIO.OUT) #cold is right tank when you look at faucet
 GPIO.output(WATER_PUMP_GPIO_COLD, 0)
 GPIO.setup(WATER_PUMP_GPIO_HOT,GPIO.OUT)
 GPIO.output(WATER_PUMP_GPIO_HOT,0)
-
+#initialise buzzer
+buzzer = Buzzer(22)
 # TCP server config (Pi 2 = server)
 HOST = "0.0.0.0"
 PORT = 5000
@@ -245,14 +249,16 @@ def main_loop():
             stop_fill_event.clear()
 
             if ml_cold > 0:
+                servo.lock_clamp()
                 print("Starting cold tank dispense...")
                 dispenseWeight(ml_cold)
 
             if ml_warm > 0:
                 print("Starting warm tank dispense...")
                 dispenseWeightHot()
-
+            servo.open_clamp()
             mark_request_done(req_id)
+            buzzer.beep(on_time=0.1, off_time=0.1, n=3)
             print("Refill complete.")
 
         else:
@@ -276,5 +282,6 @@ if __name__ == "__main__":
         print("Shutting down...")
 
     finally:
-        pump_off()
+        pump_off(WATER_PUMP_GPIO_COLD)
+        pump_off(WATER_PUMP_GPIO_HOT)
         GPIO.cleanup()
