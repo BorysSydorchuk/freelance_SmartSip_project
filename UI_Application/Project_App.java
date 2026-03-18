@@ -1,55 +1,17 @@
 package org.myprojects.project_APP;
 
-//import java.net.http.HttpClient;
-//import java.net.http.HttpResponse;
-//
-//import org.json.JSONArray;
-//import org.json.JSONObject;
-//
-//import javafx.application.Application;
-//import javafx.scene.Scene;
-//import javafx.scene.control.Button;
-//import javafx.scene.control.Label;
-//import javafx.scene.control.TextField;
-//import javafx.scene.layout.HBox;
-//import javafx.scene.layout.VBox;
-//import javafx.stage.Stage;
-//import org.myprojects.DB_task.kul_db_conn;
-//
-//public class Project_App extends Application {
-//
-//    // Variables:
-//    private HBox mainSceneBox = new HBox(20);
-//    private Scene mainScene = new Scene(mainSceneBox);
-//
-//    @Override
-//    public void start(Stage primaryStage){
-//
-//
-//        //Main Scene Element Initialization:
-//        mainSceneBox.getChildren().addAll(
-//
-//        );
-//
-//        //Scene setup:
-//        primaryStage.setScene(mainScene);
-//        primaryStage.sizeToScene();
-//        primaryStage.setOnCloseRequest(ev -> System.exit(0));
-//        primaryStage.show();
-//    }
-//}
-
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -62,37 +24,45 @@ import org.json.JSONObject;
 
 public class Project_App extends Application {
 
-    // ── Replace these with your actual team info ───────────────────────────────
-    private static final String BASE_URL    = "https://studev.groept.be/api/a25EE2team203";
-    private static final double FULL_VOLUME_ML = 500; // replace with real bottle volume at level 7
+    // ── Bottle config — set FULL_VOLUME_ML once you measure your bottle ────────
+    private static final String BASE_URL       = "https://studev.groept.be/api/a25EE2team203";
+    private static final double FULL_VOLUME_ML = 220.0; // ← replace with measured bottle volume in ml
     private static final int    MAX_LEVEL      = 7;
 
-    // ── Colours ────────────────────────────────────────────────────────────────
-    private static final String BG           = "#0d1117";
-    private static final String CARD         = "#161b22";
-    private static final String BORDER       = "#30363d";
-    private static final String ACCENT_BLUE  = "#58a6ff";
-    private static final String ACCENT_COLD  = "#79c0ff";
-    private static final String ACCENT_WARM  = "#f0883e";
-    private static final String TEXT         = "#e6edf3";
-    private static final String MUTED        = "#8b949e";
-    private static final String SUCCESS      = "#3fb950";
-    private static final String WARNING      = "#d29922";
-    private static final String DANGER       = "#f85149";
+    // ── Tank mode constants ────────────────────────────────────────────────────
+    private static final String MODE_COLD = "cold";
+    private static final String MODE_HOT  = "hot";
+    private static final String MODE_MIX  = "mix";
 
-    // ── State ──────────────────────────────────────────────────────────────────
+    // ── Colours ───────────────────────────────────────────────────────────────
+    private static final String BG          = "#0d1117";
+    private static final String CARD        = "#161b22";
+    private static final String BORDER      = "#30363d";
+    private static final String ACCENT_BLUE = "#58a6ff";
+    private static final String ACCENT_COLD = "#79c0ff";
+    private static final String ACCENT_WARM = "#f0883e";
+    private static final String ACCENT_MIX  = "#bc8cff";
+    private static final String TEXT        = "#e6edf3";
+    private static final String MUTED       = "#8b949e";
+    private static final String SUCCESS     = "#3fb950";
+    private static final String WARNING     = "#d29922";
+    private static final String DANGER      = "#f85149";
+
+    // ── State ─────────────────────────────────────────────────────────────────
     private kul_db_conn kul_db;
-    private int         currentLevel   = 0;   // 0–7 from bottle sensor
-    private double      bottleTemp     = 0.0; // °C from bottle sensor
-    private boolean     isColdSelected = true;
+    private int         currentLevel = 0;
+    private double      bottleTemp   = 0.0;
+    private String      tankMode     = MODE_MIX; // default
 
-    // ── UI nodes that are updated dynamically ─────────────────────────────────
-    private Label   levelValueLabel;
-    private Label   tempValueLabel;
-    private Label   mlToAddLabel;
-    private Label   statusLabel;
-    private VBox    levelBarContainer;
-    private Button  refillButton;
+    // ── Dynamic UI nodes ──────────────────────────────────────────────────────
+    private Label     levelValueLabel;
+    private Label     tempValueLabel;
+    private Label     mlToAddLabel;
+    private Label     statusLabel;
+    private VBox      levelBarContainer;
+    private Button    refillButton;
+    private TextField targetTempField;
+    private VBox      targetTempCard; // shown only in mix mode
 
     @Override
     public void start(Stage primaryStage) {
@@ -107,28 +77,23 @@ public class Project_App extends Application {
         root.setPrefWidth(420);
 
         // ── Title ─────────────────────────────────────────────────────────────
-        Label title = new Label("SmartSip");
+        Label title    = new Label("SmartSip");
         title.setStyle("-fx-text-fill: " + TEXT + "; -fx-font-size: 22px; -fx-font-weight: bold;");
-
         Label subtitle = new Label("Refill Station");
         subtitle.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 13px;");
-
-        VBox titleBox = new VBox(4);
+        VBox titleBox  = new VBox(4);
         titleBox.setAlignment(Pos.CENTER);
         titleBox.getChildren().addAll(title, subtitle);
 
         // ── Bottle status card ────────────────────────────────────────────────
         VBox statusCard = makeCard();
-
         Label statusCardTitle = new Label("Bottle Status");
         statusCardTitle.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-        // Water level visual bar --- ???
         levelBarContainer = new VBox(3);
         levelBarContainer.setAlignment(Pos.BOTTOM_CENTER);
         levelBarContainer.setPrefHeight(80);
 
-        // Level and temperature info row
         HBox statsRow = new HBox(30);
         statsRow.setAlignment(Pos.CENTER);
 
@@ -150,113 +115,143 @@ public class Project_App extends Application {
 
         statsRow.getChildren().addAll(levelBox, makeDivider(), tempBox);
 
-        // Amount to add
         mlToAddLabel = new Label("Press refresh to read bottle");
         mlToAddLabel.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 12px;");
         mlToAddLabel.setWrapText(true);
 
-        // Refresh button
         Button refreshButton = makeSecondaryButton("↻  Refresh Bottle Data");
         refreshButton.setOnAction(e -> fetchBottleData());
 
         statusCard.getChildren().addAll(statusCardTitle, levelBarContainer, statsRow, mlToAddLabel, refreshButton);
 
-        // ── Temperature choice card ───────────────────────────────────────────
-        VBox tempChoiceCard = makeCard();
+        // ── Fill mode card ────────────────────────────────────────────────────
+        VBox modeCard = makeCard();
+        Label modeTitle = new Label("Fill Mode");
+        modeTitle.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px; -fx-font-weight: bold;");
 
-        Label tempChoiceTitle = new Label("Water Temperature");
-        tempChoiceTitle.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+        ToggleGroup modeGroup  = new ToggleGroup();
+        ToggleButton coldBtn   = new ToggleButton("❄  Cold");
+        ToggleButton mixBtn    = new ToggleButton("〜  Mix");
+        ToggleButton hotBtn    = new ToggleButton("☀  Hot");
+        coldBtn.setToggleGroup(modeGroup);
+        mixBtn .setToggleGroup(modeGroup);
+        hotBtn .setToggleGroup(modeGroup);
+        mixBtn.setSelected(true);
 
-        ToggleGroup tempGroup = new ToggleGroup();
+        String tBase = "-fx-font-size: 13px; -fx-padding: 10 22; -fx-cursor: hand; -fx-border-radius: 6; -fx-background-radius: 6;";
+        String tOff  = tBase + "-fx-background-color: " + CARD + "; -fx-text-fill: " + MUTED + "; -fx-border-color: " + BORDER + ";";
 
-        ToggleButton coldBtn = new ToggleButton("❄  Cold");
-        ToggleButton warmBtn = new ToggleButton("☀  Warm");
-        coldBtn.setToggleGroup(tempGroup);
-        warmBtn.setToggleGroup(tempGroup);
-        coldBtn.setSelected(true);
-
-        String toggleBase =
-                "-fx-font-size: 13px; -fx-padding: 10 28; -fx-cursor: hand; " +
-                        "-fx-border-radius: 6; -fx-background-radius: 6;";
-        coldBtn.setStyle(toggleBase +
-                "-fx-background-color: " + ACCENT_COLD + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
-        warmBtn.setStyle(toggleBase +
-                "-fx-background-color: " + CARD + "; -fx-text-fill: " + MUTED + "; -fx-border-color: " + BORDER + ";");
+        // Set initial styles
+        coldBtn.setStyle(tOff);
+        mixBtn .setStyle(tBase + "-fx-background-color: " + ACCENT_MIX  + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
+        hotBtn .setStyle(tOff);
 
         coldBtn.setOnAction(e -> {
-            isColdSelected = true;
-            coldBtn.setStyle(toggleBase +
-                    "-fx-background-color: " + ACCENT_COLD + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
-            warmBtn.setStyle(toggleBase +
-                    "-fx-background-color: " + CARD + "; -fx-text-fill: " + MUTED + "; -fx-border-color: " + BORDER + ";");
+            tankMode = MODE_COLD;
+            coldBtn.setStyle(tBase + "-fx-background-color: " + ACCENT_COLD + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
+            mixBtn .setStyle(tOff);
+            hotBtn .setStyle(tOff);
+            targetTempCard.setVisible(false);
+            targetTempCard.setManaged(false);
         });
-        warmBtn.setOnAction(e -> {
-            isColdSelected = false;
-            warmBtn.setStyle(toggleBase +
-                    "-fx-background-color: " + ACCENT_WARM + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
-            coldBtn.setStyle(toggleBase +
-                    "-fx-background-color: " + CARD + "; -fx-text-fill: " + MUTED + "; -fx-border-color: " + BORDER + ";");
+        mixBtn.setOnAction(e -> {
+            tankMode = MODE_MIX;
+            coldBtn.setStyle(tOff);
+            mixBtn .setStyle(tBase + "-fx-background-color: " + ACCENT_MIX  + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
+            hotBtn .setStyle(tOff);
+            targetTempCard.setVisible(true);
+            targetTempCard.setManaged(true);
+        });
+        hotBtn.setOnAction(e -> {
+            tankMode = MODE_HOT;
+            coldBtn.setStyle(tOff);
+            mixBtn .setStyle(tOff);
+            hotBtn .setStyle(tBase + "-fx-background-color: " + ACCENT_WARM + "; -fx-text-fill: " + BG + "; -fx-font-weight: bold;");
+            targetTempCard.setVisible(false);
+            targetTempCard.setManaged(false);
         });
 
-        HBox toggleRow = new HBox(12);
+        HBox toggleRow = new HBox(10);
         toggleRow.setAlignment(Pos.CENTER);
-        toggleRow.getChildren().addAll(coldBtn, warmBtn);
+        toggleRow.getChildren().addAll(coldBtn, mixBtn, hotBtn);
 
-        tempChoiceCard.getChildren().addAll(tempChoiceTitle, toggleRow);
+        Label modeHint = new Label("Cold / Hot fills entirely from one tank.  Mix blends both to reach your target temperature.");
+        modeHint.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px;");
+        modeHint.setWrapText(true);
+
+        modeCard.getChildren().addAll(modeTitle, toggleRow, modeHint);
+
+        // ── Target temperature card (mix mode only) ───────────────────────────
+        targetTempCard = makeCard();
+        Label targetTempTitle = new Label("Target Temperature  (Mix mode)");
+        targetTempTitle.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        targetTempField = new TextField();
+        targetTempField.setPromptText("e.g. 22");
+        targetTempField.setPrefWidth(120);
+        targetTempField.setMaxWidth(120);
+
+        String fStyle  = "-fx-background-color: " + BG + "; -fx-text-fill: " + TEXT + "; -fx-prompt-text-fill: " + MUTED + "; -fx-border-color: " + BORDER   + "; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 16px; -fx-padding: 8 12; -fx-alignment: center;";
+        String fFocus  = "-fx-background-color: " + BG + "; -fx-text-fill: " + TEXT + "; -fx-prompt-text-fill: " + MUTED + "; -fx-border-color: " + ACCENT_MIX + "; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 16px; -fx-padding: 8 12; -fx-alignment: center;";
+        targetTempField.setStyle(fStyle);
+        targetTempField.focusedProperty().addListener((obs, old, focused) ->
+                targetTempField.setStyle(focused ? fFocus : fStyle));
+
+        Label unitLabel = new Label("°C");
+        unitLabel.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 20px; -fx-padding: 0 0 0 8;");
+
+        HBox inputRow = new HBox(6);
+        inputRow.setAlignment(Pos.CENTER);
+        inputRow.getChildren().addAll(targetTempField, unitLabel);
+
+        Label targetHint = new Label("The Pi reads tank temperatures and calculates the cold/hot split automatically.");
+        targetHint.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 11px;");
+        targetHint.setWrapText(true);
+
+        targetTempCard.getChildren().addAll(targetTempTitle, inputRow, targetHint);
+        // visible by default (default mode is mix)
 
         // ── Refill button ─────────────────────────────────────────────────────
         refillButton = new Button("Request Refill");
-        refillButton.setStyle(
-                "-fx-background-color: " + ACCENT_BLUE + "; -fx-text-fill: " + BG + "; " +
-                        "-fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 14 40; " +
-                        "-fx-background-radius: 8; -fx-cursor: hand; -fx-pref-width: 340px;");
-        refillButton.setOnMouseEntered(e -> refillButton.setStyle(
-                "-fx-background-color: #79c0ff; -fx-text-fill: " + BG + "; " +
-                        "-fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 14 40; " +
-                        "-fx-background-radius: 8; -fx-cursor: hand; -fx-pref-width: 340px;"));
-        refillButton.setOnMouseExited(e -> refillButton.setStyle(
-                "-fx-background-color: " + ACCENT_BLUE + "; -fx-text-fill: " + BG + "; " +
-                        "-fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 14 40; " +
-                        "-fx-background-radius: 8; -fx-cursor: hand; -fx-pref-width: 340px;"));
+        String btnS  = "-fx-background-color: " + ACCENT_BLUE + "; -fx-text-fill: " + BG + "; -fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 14 40; -fx-background-radius: 8; -fx-cursor: hand; -fx-pref-width: 340px;";
+        String btnSH = "-fx-background-color: #79c0ff; -fx-text-fill: "               + BG + "; -fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 14 40; -fx-background-radius: 8; -fx-cursor: hand; -fx-pref-width: 340px;";
+        refillButton.setStyle(btnS);
+        refillButton.setOnMouseEntered(e -> refillButton.setStyle(btnSH));
+        refillButton.setOnMouseExited (e -> refillButton.setStyle(btnS));
         refillButton.setOnAction(e -> requestRefill());
 
-        // ── Status message ────────────────────────────────────────────────────
+        // ── Status label ──────────────────────────────────────────────────────
         statusLabel = new Label("");
         statusLabel.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 12px;");
         statusLabel.setWrapText(true);
 
         // ── Assemble ──────────────────────────────────────────────────────────
-        root.getChildren().addAll(titleBox, statusCard, tempChoiceCard, refillButton, statusLabel);
+        root.getChildren().addAll(titleBox, statusCard, modeCard, targetTempCard, refillButton, statusLabel);
 
-        Scene scene = new Scene(root);
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: " + BG + "; -fx-background-color: " + BG + ";");
+
+        Scene scene = new Scene(scrollPane, 440, 650);
         primaryStage.setScene(scene);
-        primaryStage.sizeToScene();
         primaryStage.setOnCloseRequest(e -> System.exit(0));
         primaryStage.show();
     }
 
-    // ── Fetch current bottle level and temperature from the database ───────────
-    // The bottle Pi writes its sensor readings to the DB; we read the latest row.
+    // ── Fetch current bottle level + temperature ──────────────────────────────
     private void fetchBottleData() {
         try {
             HttpClient client = HttpClient.newHttpClient();
-
-            // Replace "getBottleStatus" with your actual endpoint that returns
-            // the latest row from the bottle sensor table.
-            // Expected JSON: [{"level": 3, "temperature": 21.5}]
-            String url = BASE_URL + "/getBottleStatus"; // replace endpoint
-            HttpResponse<String> response = kul_db.makeGETRequest(client, url);
-
+            HttpResponse<String> response = kul_db.makeGETRequest(client, BASE_URL + "/getBottleStatus");
 
             JSONArray array = new JSONArray(response.body());
-            if (array.length() == 0) {
-                setStatus("No bottle data found.", WARNING);
-                return;
-            }
+            if (array.length() == 0) { setStatus("No bottle data found.", WARNING); return; }
 
             JSONObject latest = array.getJSONObject(0);
             currentLevel = latest.getInt("level");
-            bottleTemp   = latest.getDouble("temperature");  // replace key if different
+            bottleTemp   = latest.getDouble("temperature");
 
             updateBottleDisplay();
             setStatus("Bottle data refreshed.", SUCCESS);
@@ -267,20 +262,17 @@ public class Project_App extends Application {
         }
     }
 
-    // ── Update all visual elements based on currentLevel and bottleTemp ────────
+    // ── Rebuild level bar and ml label ────────────────────────────────────────
     private void updateBottleDisplay() {
         levelValueLabel.setText(currentLevel + " / " + MAX_LEVEL);
         tempValueLabel.setText(String.format("%.1f °C", bottleTemp));
 
-        // Rebuild the level bar: 7 segments, filled ones are blue
         levelBarContainer.getChildren().clear();
-        // Draw from top to bottom: segment 7 at top, segment 1 at bottom
         for (int i = MAX_LEVEL; i >= 1; i--) {
             Rectangle seg = new Rectangle(220, 8);
             seg.setArcWidth(4);
             seg.setArcHeight(4);
             if (i <= currentLevel) {
-                // filled — colour shifts from light blue (low) to deep blue (full)
                 double ratio = (double) i / MAX_LEVEL;
                 seg.setFill(Color.web(ACCENT_BLUE).interpolate(Color.web("#1f6feb"), 1 - ratio));
             } else {
@@ -294,37 +286,46 @@ public class Project_App extends Application {
             mlToAddLabel.setStyle("-fx-text-fill: " + SUCCESS + "; -fx-font-size: 12px;");
             refillButton.setDisable(true);
         } else {
-            double mlToAdd = calculateMlToAdd(currentLevel);
-            mlToAddLabel.setText(String.format("%.0f ml needed to reach full (level 7)", mlToAdd));
+            double mlCurrent = levelToMl(currentLevel);
+            mlToAddLabel.setText(String.format("%.0f ml needed to reach full", FULL_VOLUME_ML - mlCurrent));
             mlToAddLabel.setStyle("-fx-text-fill: " + MUTED + "; -fx-font-size: 12px;");
             refillButton.setDisable(false);
         }
     }
 
-    // ── Calculate how many ml are needed to go from currentLevel to 7 ──────────
-    private double calculateMlToAdd(int level) {
-        // Level is linear 0–7, volume at level 7 = FULL_VOLUME_ML
-        double mlPerLevel = FULL_VOLUME_ML / MAX_LEVEL;
-        return (MAX_LEVEL - level) * mlPerLevel;
+    // ── Level (0–7) → ml ──────────────────────────────────────────────────────
+    private double levelToMl(int level) {
+        return level * (FULL_VOLUME_ML / MAX_LEVEL);
     }
 
-    // ── Write refill request to DB and wait for station Pi to confirm done ─────
+    // ── Validate input, build URL and send request ────────────────────────────
     private void requestRefill() {
-        // Guard: force user to refresh first so currentLevel is real
-        if (currentLevel == 0) {
+        if (currentLevel == 0 && bottleTemp == 0.0) {
             setStatus("Please refresh bottle data first.", WARNING);
             return;
         }
 
-        double mlToAddInColdTank = 0, mlToAddInHotTank = 0;
-        if (isColdSelected) {
-            mlToAddInColdTank = calculateMlToAdd(currentLevel);
-        } else {
-            mlToAddInHotTank = calculateMlToAdd(currentLevel);
+        // target temp is only required in mix mode
+        double targetTemp = 0.0;
+        if (tankMode.equals(MODE_MIX)) {
+            String raw = targetTempField.getText().trim();
+            if (raw.isEmpty()) {
+                setStatus("Please enter a target temperature for mix mode.", WARNING);
+                return;
+            }
+            try {
+                targetTemp = Double.parseDouble(raw);
+            } catch (NumberFormatException ex) {
+                setStatus("Target temperature must be a number (e.g. 22 or 18.5).", DANGER);
+                return;
+            }
+            if (targetTemp <= 0 || targetTemp > 100) {
+                setStatus("Target temperature must be between 0 and 100 °C.", DANGER);
+                return;
+            }
         }
 
-        // Print so you can see what is actually being sent
-        System.out.println("Sending: cold=" + mlToAddInColdTank + " warm=" + mlToAddInHotTank);
+        double bottleVolumeCurrent = levelToMl(currentLevel);
 
         refillButton.setDisable(true);
         setStatus("Sending refill request...", MUTED);
@@ -332,16 +333,22 @@ public class Project_App extends Application {
         try {
             HttpClient client = HttpClient.newHttpClient();
 
-            // FIX: format doubles to whole numbers so the URL is clean e.g. /357/0
-            String insertUrl = BASE_URL + "/insertRefillRequest"
-                    + "/" + String.format("%.0f", mlToAddInColdTank)
-                    + "/" + String.format("%.0f", mlToAddInHotTank);
+            // Endpoint: /insertRefillRequest/{bottle_volume_current}/{bottle_temp}/{target_temp}/{tank_mode}
+            //
+            // bottle_volume_current  ml currently in bottle     → Pi needs this for calorimetry
+            // bottle_temp            current water temp in °C   → Pi needs this for calorimetry
+            // target_temp            desired final temp in °C   → 0.0 when mode is cold or hot
+            // tank_mode              "cold" | "hot" | "mix"     → Pi decides pump logic from this
+            String url = BASE_URL + "/insertRefillRequest"
+                    + "/" + String.format("%.0f", bottleVolumeCurrent)
+                    + "/" + String.format("%.1f", bottleTemp)
+                    + "/" + String.format("%.1f", (((targetTemp-30)*1.5)+30)) // Temperature coefficient
+                    + "/" + tankMode;
 
-            System.out.println(insertUrl);
-            System.out.println("URL: " + insertUrl); // so you can verify in the console
-            kul_db.makeGETRequest(client, insertUrl);
+            System.out.println("Refill request → " + url);
+            kul_db.makeGETRequest(client, url);
 
-            setStatus("Refill request sent. Waiting for station to complete...", ACCENT_BLUE);
+            setStatus("Request sent. Waiting for station...", ACCENT_BLUE);
             pollForCompletion(client);
 
         } catch (Exception e) {
@@ -350,135 +357,55 @@ public class Project_App extends Application {
             refillButton.setDisable(false);
         }
     }
-//    private void requestRefill() {
-////        if (currentLevel == 0) {                              --- if we have empty bottle and want to
-////            setStatus("Refresh bottle data first.", WARNING); --- fill it in, then with this if statement
-////            return;                                           --- it would crash
-////        }
-//
-//        // I changed code over here a bit to make it do calculations using variables of both
-//        // tanks for further tasks
-//        double mlToAddInColdTank = 0, mlToAddInHotTank = 0;
-//        if(isColdSelected){
-//            mlToAddInColdTank = calculateMlToAdd(currentLevel);
-//        }
-//        else mlToAddInHotTank = calculateMlToAdd(currentLevel);
-//
-//        refillButton.setDisable(true); // --- not clear for me when do we enable it after disabling
-//        setStatus("Sending refill request...", MUTED);
-//
-//        try {
-//            HttpClient client = HttpClient.newHttpClient();
-//
-//            // ── Step 1: Write the refill request to the DB ────────────────────
-//            // The station Pi polls this table and starts the pump when it sees a new row.
-//            // Replace "insertRefillRequest" with your actual insert endpoint.
-//            // Parameters: mlToAddInTank1, mlToAddInTank2
-//            String insertUrl = BASE_URL + "/insertRefillRequest"  // replace endpoint
-//                    + "/" + mlToAddInColdTank
-//                    + "/" + mlToAddInHotTank;
-//            kul_db.makeGETRequest(client, insertUrl);
-//
-//            // I don't really need this part as I will fill this database through MySQL directly
-////            // ── Step 2: Log this refill in the refill history table ───────────
-////            // Columns: timestamp (auto by DB), level_before, ml_added, tank_used
-////            // Replace "insertRefillLog" with your actual log insert endpoint.
-////            String logUrl = BASE_URL + "/insertRefillLog"         // replace endpoint
-////                    + "/" + currentLevel
-////                    + "/" + String.format("%.0f", mlToAdd)
-////                    + "/" + tankChoice;
-////            kul_db.makeGETRequest(client, logUrl);
-//
-//            setStatus("Refill request sent. Waiting for station to complete...", ACCENT_BLUE);
-//
-//            // ── Step 3: Poll the DB until the station Pi marks the refill done ─
-//            // The station Pi sets a "status" column to "done" when the pump stops.
-//            // Replace "getRefillStatus" with your actual endpoint.
-//            // Expected JSON: [{"status": "done"}] or [{"status": "pending"}]
-//            pollForCompletion(client);
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            setStatus("Error sending refill request.", DANGER);
-//            refillButton.setDisable(false);
-//        }
-//    }
 
-    // ── Poll DB every 2 seconds until station Pi sets status to "done" ─────────
+    // ── Poll every 2 s until Pi marks done ───────────────────────────────────
     private void pollForCompletion(HttpClient client) {
-        // We use a background thread so the UI doesn't freeze during polling
-        Thread pollThread = new Thread(() -> {
-            int maxAttempts = 30; // give up after 60 seconds (30 × 2s)
-            for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        Thread t = new Thread(() -> {
+            int maxAttempts = 60; // 120 s timeout
+            for (int i = 0; i < maxAttempts; i++) {
                 try {
                     Thread.sleep(2000);
-
-                    // Replace "getRefillStatus" with your actual endpoint
-                    // Expected JSON: [{"RefillResponse": "done"}] or [{"RefillResponse": "pending"}]
-                    String statusUrl = BASE_URL + "/getRefillStatus";
-                    HttpResponse<String> resp = kul_db.makeGETRequest(client, statusUrl);
-
+                    HttpResponse<String> resp = kul_db.makeGETRequest(client, BASE_URL + "/getRefillStatus");
                     JSONArray arr = new JSONArray(resp.body());
-                    if (arr.length() > 0) {
-                        String status = arr.getJSONObject(0).getString("RefillResponse"); // replace key if different
-                        if (status.equals("done")) {
-                            // Back to UI thread to update labels
-                            javafx.application.Platform.runLater(() -> {
-                                setStatus("Refill complete! Refresh to see new level.", SUCCESS);
-                                refillButton.setDisable(false);
-                            });
-                            return;
-                        }
+                    if (arr.length() > 0 && arr.getJSONObject(0).getString("RefillResponse").equals("done")) {
+                        javafx.application.Platform.runLater(() -> {
+                            setStatus("Refill complete! Refresh to see new level.", SUCCESS);
+                            refillButton.setDisable(false);
+                        });
+                        return;
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                } catch (Exception e) { e.printStackTrace(); }
             }
-            // Timeout
             javafx.application.Platform.runLater(() -> {
                 setStatus("Timed out waiting for station. Check manually.", WARNING);
                 refillButton.setDisable(false);
             });
         });
-        pollThread.setDaemon(true); // thread dies when app closes
-        pollThread.start();
+        t.setDaemon(true);
+        t.start();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    private void setStatus(String message, String color) {
-        statusLabel.setText(message);
+    private void setStatus(String msg, String color) {
+        statusLabel.setText(msg);
         statusLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 12px;");
     }
 
     private VBox makeCard() {
-        VBox card = new VBox(14);
-        card.setStyle(
-                "-fx-background-color: " + CARD + "; " +
-                        "-fx-border-color: " + BORDER + "; " +
-                        "-fx-border-radius: 10; -fx-background-radius: 10; " +
-                        "-fx-padding: 20;");
-        card.setPrefWidth(356);
-        return card;
+        VBox c = new VBox(14);
+        c.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER + "; -fx-border-radius: 10; -fx-background-radius: 10; -fx-padding: 20;");
+        c.setPrefWidth(356);
+        return c;
     }
 
     private Button makeSecondaryButton(String text) {
-        Button btn = new Button(text);
-        btn.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-text-fill: " + TEXT + "; " +
-                        "-fx-font-size: 12px; -fx-padding: 8 18; " +
-                        "-fx-border-color: " + BORDER + "; -fx-border-radius: 6; -fx-background-radius: 6; " +
-                        "-fx-cursor: hand;");
-        btn.setOnMouseEntered(e -> btn.setStyle(
-                "-fx-background-color: #21262d; -fx-text-fill: " + TEXT + "; " +
-                        "-fx-font-size: 12px; -fx-padding: 8 18; " +
-                        "-fx-border-color: " + ACCENT_BLUE + "; -fx-border-radius: 6; -fx-background-radius: 6; " +
-                        "-fx-cursor: hand;"));
-        btn.setOnMouseExited(e -> btn.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-text-fill: " + TEXT + "; " +
-                        "-fx-font-size: 12px; -fx-padding: 8 18; " +
-                        "-fx-border-color: " + BORDER + "; -fx-border-radius: 6; -fx-background-radius: 6; " +
-                        "-fx-cursor: hand;"));
-        return btn;
+        Button b = new Button(text);
+        String s  = "-fx-background-color: " + CARD + "; -fx-text-fill: " + TEXT + "; -fx-font-size: 12px; -fx-padding: 8 18; -fx-border-color: " + BORDER     + "; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;";
+        String sh = "-fx-background-color: #21262d; -fx-text-fill: "       + TEXT + "; -fx-font-size: 12px; -fx-padding: 8 18; -fx-border-color: " + ACCENT_BLUE + "; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand;";
+        b.setStyle(s);
+        b.setOnMouseEntered(e -> b.setStyle(sh));
+        b.setOnMouseExited (e -> b.setStyle(s));
+        return b;
     }
 
     private Label makeDivider() {
@@ -487,7 +414,5 @@ public class Project_App extends Application {
         return d;
     }
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+    public static void main(String[] args) { launch(args); }
 }
