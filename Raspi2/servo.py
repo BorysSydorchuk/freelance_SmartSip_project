@@ -47,5 +47,5 @@ def toggle_clamp():
     else:
         lock_clamp()
 
-open_clamp()
+
 
