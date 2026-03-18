@@ -1,4 +1,5 @@
 from gpiozero import Servo, Button
+from gpiozero.pins.pigpio import PiGPIOFactory
 from signal import pause
 
 #servo settings, range from -1 to 1
@@ -9,9 +10,10 @@ L_LOCK = 0.6
 R_OPEN =  0
 R_LOCK = -0.6
 
-
-left_servo  = Servo(12)
-right_servo = Servo(13)
+#initialising pin factory to reduce servo jitter
+factory = PiGPIOFactory()
+left_servo  = Servo(12, pin_factory=factory)
+right_servo = Servo(13, pin_factory=factory)
 
 
 # locked = False
@@ -24,16 +26,13 @@ def open_clamp():
     # global locked
     set_servos(L_OPEN, R_OPEN)
     # locked = False
-    left_servo.detach()
-    right_servo.detach()
+
     print("CLAMP: OPEN")
 
 def lock_clamp():
     # global locked
     set_servos(L_LOCK, R_LOCK)
     # locked = True
-    left_servo.detach()
-    right_servo.detach()
     print("CLAMP: LOCKED")
 
 # def toggle_clamp():
