@@ -4,6 +4,7 @@ import time
 import requests
 import socket
 import threading
+import servo
 
 # ── GPIO / ADC init ───────────────────────────────────────────────────────────
 WATER_PUMP_GPIO_COLD = 15
@@ -179,6 +180,7 @@ def dispense_cold_by_weight(mass_requested_g: float):
 
                 if mass_dispensed < mass_requested_g:
                     if not pump_is_on:
+                        servo.lock_clamp()
                         pump_on(WATER_PUMP_GPIO_COLD)
                         pump_is_on = True
                     print(f"[COLD] {mass_requested_g - mass_dispensed:.0f} g remaining")
@@ -188,6 +190,7 @@ def dispense_cold_by_weight(mass_requested_g: float):
 
                 prev_time = clock()
     finally:
+        servo.open_clamp()
         pump_off(WATER_PUMP_GPIO_COLD)
         with state_lock:
             currently_dispensing = False
@@ -211,12 +214,14 @@ def dispense_hot_until_full():
     try:
         while not stop_fill_event.is_set():
             if not pump_is_on:
+                servo.lock_clamp()
                 pump_on(WATER_PUMP_GPIO_HOT)
                 pump_is_on = True
             time.sleep(0.05)   # tight loop, event-driven stop
         print("[HOT] FULL signal received — stopping hot pump.")
     finally:
         pump_off(WATER_PUMP_GPIO_HOT)
+        servo.open_clamp()
         with state_lock:
             currently_dispensing = False
 
