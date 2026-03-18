@@ -1,4 +1,4 @@
-from gpiozero import MCP3008, Button
+from gpiozero import MCP3008, Button, Buzzer
 import RPi.GPIO as GPIO
 import time
 import requests
@@ -6,6 +6,8 @@ import socket
 import threading
 import servo
 
+#buzzer
+buzzer = Buzzer(22)
 # ── GPIO / ADC init ───────────────────────────────────────────────────────────
 WATER_PUMP_GPIO_COLD = 15
 WATER_PUMP_GPIO_HOT  = 18
@@ -25,9 +27,9 @@ SENSOR_MAP = {
 }
 
 # ── Scale linearisation ───────────────────────────────────────────────────────
-ZERO_OFFSET     = 1.024
-FULL_SCALE_VOLT = 1.385
-KNOWN_MASS      = 500   # grams at FULL_SCALE_VOLT
+ZERO_OFFSET     = 1.295
+FULL_SCALE_VOLT = 1.65
+KNOWN_MASS      = 650   # grams at FULL_SCALE_VOLT
 
 # ── DB config ─────────────────────────────────────────────────────────────────
 BASE_URL      = "https://studev.groept.be/api/a25EE2team203"
@@ -79,6 +81,7 @@ def read_tank_temps() -> tuple[float | None, float | None]:
 # Returns mass of cold water needed in grams, or None on error.
 # ════════════════════════════════════════════════════════════════════════════════
 
+
 TOTAL_BOTTLE_VOLUME_ML = 220.0  # ← set this once you measure your bottle
 
 def calculate_cold_mass(
@@ -129,8 +132,12 @@ def calculate_cold_mass(
         return None
 
     return mass_cold
+#-----------
+# buzzer method
+def buzzer_onesecond():
+    buzzer.beep(on_time=0.1, off_time=0.1, n=3)
 
-
+#-------
 # ════════════════════════════════════════════════════════════════════════════════
 # PUMP HELPERS
 # ════════════════════════════════════════════════════════════════════════════════
@@ -180,7 +187,6 @@ def dispense_cold_by_weight(mass_requested_g: float):
 
                 if mass_dispensed < mass_requested_g:
                     if not pump_is_on:
-                        servo.lock_clamp()
                         pump_on(WATER_PUMP_GPIO_COLD)
                         pump_is_on = True
                     print(f"[COLD] {mass_requested_g - mass_dispensed:.0f} g remaining")
@@ -190,7 +196,6 @@ def dispense_cold_by_weight(mass_requested_g: float):
 
                 prev_time = clock()
     finally:
-        servo.open_clamp()
         pump_off(WATER_PUMP_GPIO_COLD)
         with state_lock:
             currently_dispensing = False
@@ -214,14 +219,12 @@ def dispense_hot_until_full():
     try:
         while not stop_fill_event.is_set():
             if not pump_is_on:
-                servo.lock_clamp()
                 pump_on(WATER_PUMP_GPIO_HOT)
                 pump_is_on = True
             time.sleep(0.05)   # tight loop, event-driven stop
         print("[HOT] FULL signal received — stopping hot pump.")
     finally:
-        pump_off(WATER_PUMP_GPIO_HOT)
-        servo.open_clamp()
+        pump_off(WATER_PUMP_GPIO_HOT)       
         with state_lock:
             currently_dispensing = False
 
@@ -355,13 +358,20 @@ def handle_request(request: dict):
 
     if tank_mode == "cold":
         # Fill entirely with cold water by weight
+        servo.lock_clamp()
         dispense_cold_by_weight(ml_to_fill)
+        buzzer_onesecond()
+        servo.open_clamp()
         log_refill_history(ml_to_fill, tank_mode)
 
     elif tank_mode == "hot":
         # Run hot pump until bottle Pi signals full
+        servo.lock_clamp()
         dispense_hot_until_full()
+        buzzer_onesecond()
+        servo.open_clamp()
         log_refill_history(ml_to_fill, tank_mode)
+        
 
     elif tank_mode == "mix":
         temp_cold, temp_hot = read_tank_temps()
@@ -387,11 +397,13 @@ def handle_request(request: dict):
         print(f"[MIX] Calorimetry → cold: {mass_cold:.0f} g   hot: {ml_to_fill - mass_cold:.0f} g")
 
         # Step 1: dispense cold water precisely by weight
+        servo.lock_clamp()
         dispense_cold_by_weight(mass_cold)
 
         # Step 2: top up with hot water until bottle Pi says full
         dispense_hot_until_full()
-
+        buzzer_onesecond()
+        servo.open_clamp()
         log_refill_history(ml_to_fill, tank_mode)
 
     else:
