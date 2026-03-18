@@ -1,7 +1,7 @@
 from gpiozero import Servo, Button
 from gpiozero.pins.pigpio import PiGPIOFactory
 from signal import pause
-
+from threading import Timer
 #servo settings, range from -1 to 1
 L_OPEN = 0
 L_LOCK = 0.6
@@ -26,13 +26,18 @@ def open_clamp():
     # global locked
     set_servos(L_OPEN, R_OPEN)
     # locked = False
-
+    Timer(0.4,detach_servos).start()
     print("CLAMP: OPEN")
+
+def detach_servos():
+   left_servo.detach()
+   right_servo.detach()
 
 def lock_clamp():
     # global locked
     set_servos(L_LOCK, R_LOCK)
     # locked = True
+    Timer(0.4,detach_servos).start()
     print("CLAMP: LOCKED")
 
 # def toggle_clamp():
