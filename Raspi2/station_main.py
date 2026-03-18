@@ -79,7 +79,7 @@ def read_tank_temps() -> tuple[float | None, float | None]:
 # Returns mass of cold water needed in grams, or None on error.
 # ════════════════════════════════════════════════════════════════════════════════
 
-TOTAL_BOTTLE_VOLUME_ML = 500.0  # ← set this once you measure your bottle
+TOTAL_BOTTLE_VOLUME_ML = 100.0  # ← set this once you measure your bottle
 
 def calculate_cold_mass(
     volume_in_bottle_ml: float,
@@ -341,10 +341,10 @@ def handle_request(request: dict):
     mix  → calorimetry to find cold mass, dispense cold by weight, then hot until FULL
     """
     req_id               = request["ID"]
-    bottle_volume_current = float(request["bottle_volume_current"])  # ml
-    bottle_temp          = float(request["bottle_temp"])             # °C
-    target_temp          = float(request["target_temp"])             # °C (0 if not mix)
-    tank_mode            = request["tank_mode"]                      # "cold"|"hot"|"mix"
+    bottle_volume_current = float(request["CurrentVolumeInTheBottle"])      # ml
+    bottle_temp          = float(request["CurrentTemperatireInTheBottle"])  # °C
+    target_temp          = float(request["TargetedTemperature"])            # °C (0 if not mix)
+    tank_mode            = request["TankMode"]                              # "cold"|"hot"|"mix"
 
     ml_to_fill = TOTAL_BOTTLE_VOLUME_ML - bottle_volume_current
 
