@@ -1,5 +1,4 @@
-from gpiozero import Servo, Button
-from signal import pause
+from gpiozero import Servo
 from threading import Timer
 from gpiozero.pins.pigpio import PiGPIOFactory
 #servo settings, range from -1 to 1
