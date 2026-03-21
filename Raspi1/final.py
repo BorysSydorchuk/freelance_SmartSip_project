@@ -127,7 +127,7 @@ def send_message_to_server(message: str, timeout: float = 2.0) -> bool:
             s.sendall(message.encode("utf-8"))
 
             try:
-                reply = s.recv(1024).decode("utf-8").strip()
+                reply = s.recv(1024).decode("utf-8").strip() #read and decode,maximum 1024 bits
                 print(f"Server reply: {reply}")
             except socket.timeout:
                 print("Timeout waiting for ACK, but message may still be delivered.")
